@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ec4b89f9-7053-43c8-933f-759a166a13ad" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<flow name="aggregatormoduleFlow" doc:id="d60ebe4a-73c2-4429-b7d9-c22743de82b0" >
+		<http:listener doc:name="Listener" doc:id="95606201-6f92-4b31-bb27-30d6bef4f88e" config-ref="HTTP_Listener_config" path="/size"/>
+		<aggregators:size-based-aggregator doc:name="Size based aggregator" doc:id="f856c275-93ce-495f-bf18-a12968f42491" name="aggregate" maxSize="5">
+			<aggregators:incremental-aggregation >
+				<logger level="INFO" doc:name="Logger" doc:id="6c45f33e-407f-4760-ada0-bfb1eb58d8d7" message="aggregated"/>
+			</aggregators:incremental-aggregation>
+			<aggregators:aggregation-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="08a277f1-b8e3-4920-b718-810fc1b7a953" message="aggregation completed"/>
+				<logger level="INFO" doc:name="Logger" doc:id="da725a33-1638-47f5-865b-4b3e12356f66" message="#[output application/json &#10;--- &#10;payload]"/>
+			</aggregators:aggregation-complete>
+		</aggregators:size-based-aggregator>
+	</flow>
+	<flow name="aggregatormoduleFlow1" doc:id="f3bfeb98-bace-45ab-9a94-0e80c44ca09a" >
+		<http:listener doc:name="Listener" doc:id="09031986-dcce-4322-80ff-e140fa44edf8" config-ref="HTTP_Listener_config" path="/time"/>
+		<aggregators:time-based-aggregator doc:name="Time based aggregator" doc:id="f4ceb24d-49c7-4c35-a436-fda3a45d9450" name="time aggregator" period="5000">
+			<aggregators:incremental-aggregation >
+				<logger level="INFO" doc:name="Logger" doc:id="c0e6cdf0-57aa-4b91-a91f-dffd1e8df067" message="aggregation completed"/>
+				<logger level="INFO" doc:name="Logger" doc:id="cc0aa48b-d680-4ddb-82f8-c83c681f8103" message="#[output application/json&#10;---&#10;payload]"/>
+			</aggregators:incremental-aggregation>
+		</aggregators:time-based-aggregator>
+	</flow>
+	<flow name="aggregatormoduleFlow2" doc:id="b453d5b3-1675-4dea-b6eb-16962d55e30b" >
+		<http:listener doc:name="Listener" doc:id="f769a7b4-edb4-4ee0-876a-840b5b5e24e4" config-ref="HTTP_Listener_config" path="/group"/>
+		<aggregators:group-based-aggregator doc:name="Group based aggregator" doc:id="c6d7493e-4468-4616-ac3c-6de3de07445e" name="groupbased aggregator" groupId="#[payload.id]" groupSize="3">
+			<aggregators:incremental-aggregation >
+				<logger level="INFO" doc:name="Logger" doc:id="c17b3c0b-3287-48ae-9d8a-54f917e15255" message="aggregated"/>
+			</aggregators:incremental-aggregation>
+			<aggregators:aggregation-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="ac741454-59e0-4d93-8140-98ef87fe3054" message="aggregation completed"/>
+				<logger level="INFO" doc:name="Logger" doc:id="ca87b0db-012a-406a-9184-d890b9e0787b" message="#[output application/json&#10;---&#10;payload]"/>
+			</aggregators:aggregation-complete>
+		</aggregators:group-based-aggregator>
+	</flow>
+	<flow name="aggregatormoduleFlow3" doc:id="362d4a84-bbf2-4371-97fb-ce427c3a7a2d" >
+		<aggregators:aggregator-listener doc:name="Aggregator listener" doc:id="f0674795-7899-4e55-a1e1-f7d4a9bf1c3d" aggregatorName="aggregate"/>
+		<logger level="INFO" doc:name="Logger" doc:id="dec6ea6b-ae3b-4cec-967c-efc7db5c9a86" message="size based aggreator listener completed"/>
+	</flow>
+</mule>
