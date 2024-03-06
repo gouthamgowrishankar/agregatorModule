@@ -1,13 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators" xmlns:http="http://www.mulesoft.org/schema/mule/http"
-	xmlns="http://www.mulesoft.org/schema/mule/core"
-	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns:aggregators="http://www.mulesoft.org/schema/mule/aggregators"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd">
+http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/mule/aggregators/current/mule-aggregators.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
 	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="ec4b89f9-7053-43c8-933f-759a166a13ad" >
 		<http:listener-connection host="0.0.0.0" port="8081" />
 	</http:listener-config>
+	<os:config name="ObjectStore_Config" doc:name="ObjectStore Config" doc:id="e418782c-1ca4-42f9-874c-ed36da88cebf" />
+	<os:object-store name="Object_store" doc:name="Object store" doc:id="564f71d1-b696-4dde-a58e-d15c5650f796" config-ref="ObjectStore_Config" />
 	<flow name="aggregatormoduleFlow" doc:id="d60ebe4a-73c2-4429-b7d9-c22743de82b0" >
 		<http:listener doc:name="Listener" doc:id="95606201-6f92-4b31-bb27-30d6bef4f88e" config-ref="HTTP_Listener_config" path="/size"/>
 		<aggregators:size-based-aggregator doc:name="Size based aggregator" doc:id="f856c275-93ce-495f-bf18-a12968f42491" name="aggregate" maxSize="5">
@@ -44,5 +48,56 @@ http://www.mulesoft.org/schema/mule/aggregators http://www.mulesoft.org/schema/m
 	<flow name="aggregatormoduleFlow3" doc:id="362d4a84-bbf2-4371-97fb-ce427c3a7a2d" >
 		<aggregators:aggregator-listener doc:name="Aggregator listener" doc:id="f0674795-7899-4e55-a1e1-f7d4a9bf1c3d" aggregatorName="aggregate"/>
 		<logger level="INFO" doc:name="Logger" doc:id="dec6ea6b-ae3b-4cec-967c-efc7db5c9a86" message="size based aggreator listener completed"/>
+	</flow>
+	<flow name="aggregatormoduleFlow4" doc:id="7b013807-bbab-4926-807a-7272c67e8b4a" >
+		<http:listener doc:name="Listener" doc:id="a95371d6-c2f0-4df6-a6cf-908e1a9c2e27" config-ref="HTTP_Listener_config" path="/replicate"/>
+		<ee:transform doc:name="Transform Message" doc:id="eff5e98d-ef8b-4915-a731-d60ac1fad7ef" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload.data]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="size" ><![CDATA[%dw 2.0
+output application/json
+---
+payload.size]]></ee:set-variable>
+				<ee:set-variable variableName="aggregator" ><![CDATA[%dw 2.0
+output application/json
+---
+(0 to (payload.size-1)) as Array]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<os:retrieve doc:name="Retrieve" doc:id="480a9944-1f58-42a6-b21b-f6ad7ed7eb32" key="counter" objectStore="Object_store" target="counter">
+			<os:default-value ><![CDATA[0]]></os:default-value>
+		</os:retrieve>
+		<choice doc:name="Choice" doc:id="bdf51cac-9a60-450f-b491-3fccab817d02" >
+			<when expression="#[vars.counter &lt; (vars.size -1)]">
+				<os:retrieve doc:name="Retrieve" doc:id="85be2c7e-3064-4cca-a81b-d696eeb0dac8" key="aggregate" target="lastStored" objectStore="Object_store">
+					<os:default-value ><![CDATA[#[[]]]]></os:default-value>
+				</os:retrieve>
+				<os:store doc:name="Store" doc:id="9fffffa3-0c54-4071-b00e-c10005bd4e4e" key="aggregate" objectStore="Object_store">
+					<os:value ><![CDATA[#[output application/json ---
+vars.lastStored + payload]]]></os:value>
+				</os:store>
+				<os:store doc:name="Store" doc:id="f212f1db-8ffa-4ef1-bc68-cc48d8c58242" key="counter" objectStore="Object_store">
+					<os:value ><![CDATA[#[vars.counter +1]]]></os:value>
+				</os:store>
+			</when>
+			<otherwise >
+				<os:retrieve doc:name="Retrieve" doc:id="9a81ff60-ef67-4300-8550-8b1920772ad4" key="aggregate" objectStore="Object_store" target="retrivedPayload"/>
+				<os:remove doc:name="Remove" doc:id="d3c9b00f-3fa9-4032-b553-29772b1275e4" key="counter" objectStore="Object_store"/>
+				<os:remove doc:name="Remove" doc:id="02a4c017-8182-4574-85d4-55113b23e243" key="aggregate" objectStore="Object_store"/>
+				<ee:transform doc:name="Transform Message" doc:id="d3e19f16-417c-4e99-be3d-4c6f780917d1" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.retrivedPayload + payload]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
 	</flow>
 </mule>
